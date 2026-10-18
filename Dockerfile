@@ -20,4 +20,4 @@ COPY --from=builder /app/worker/dist ./worker/dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
-CMD ["sh", "-c", "npm run db:migrate && node server.js"]
+CMD ["node", "server.js"]

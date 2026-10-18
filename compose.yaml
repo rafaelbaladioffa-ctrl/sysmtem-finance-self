@@ -18,19 +18,35 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["npm", "run", "db:migrate"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - private
+    restart: "no"
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     environment:
       NODE_ENV: production
+      HOSTNAME: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
       APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
       APP_CURRENCY: ${APP_CURRENCY:-BRL}
       PORT: 3000
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - private
     ports:
@@ -47,14 +63,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: ["sh", "-c", "npm run db:migrate && npm run start:worker"]
+    command: ["npm", "run", "start:worker"]
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
       WORKER_PORT: 3001
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - private
     expose:
