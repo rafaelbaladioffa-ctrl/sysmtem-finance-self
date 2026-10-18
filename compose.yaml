@@ -1,0 +1,78 @@
+services:
+  db:
+    image: postgres:18.6-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finance_app}
+      POSTGRES_USER: ${POSTGRES_USER:-finance_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      APP_CURRENCY: ${APP_CURRENCY:-BRL}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - private
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["sh", "-c", "npm run db:migrate && npm run start:worker"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+      WORKER_PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - private
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  # O proxy HTTPS deve ser adicionado à frente de `app` em produção.
+  # Não publicar `db` ou `worker` na interface pública.
+
+volumes:
+  postgres_data:
+
+networks:
+  private:
+    driver: bridge
+    internal: true
