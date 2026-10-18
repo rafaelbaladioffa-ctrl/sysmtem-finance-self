@@ -6,7 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-finance_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18 stores data under a major-version directory.
+      - postgres_data:/var/lib/postgresql
     networks:
       - private
     healthcheck:
