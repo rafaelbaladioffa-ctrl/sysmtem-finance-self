@@ -92,4 +92,3 @@ volumes:
 networks:
   private:
     driver: bridge
-    internal: true
